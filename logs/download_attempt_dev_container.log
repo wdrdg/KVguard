@@ -1,0 +1,14 @@
+[download] fineharm ...
+[download] fineharm FAILED: ProxyError: 403 Forbidden
+[download] qwen3guardtest ...
+[download] qwen3guardtest FAILED: ProxyError: 403 Forbidden
+[download] model ...
+[download] model FAILED: ProxyError: 403 Forbidden
+{
+  "failures": {
+    "fineharm": "ProxyError: 403 Forbidden",
+    "qwen3guardtest": "ProxyError: 403 Forbidden",
+    "model": "ProxyError: 403 Forbidden"
+  }
+}
+exit=1

@@ -1,0 +1,9 @@
+.......................................ssssssssss...........             [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_model_alignment.py:77: CUDA not available
+SKIPPED [1] tests/test_model_alignment.py:86: CUDA not available
+SKIPPED [1] tests/test_model_alignment.py:116: CUDA not available
+SKIPPED [1] tests/test_model_alignment.py:133: CUDA not available
+SKIPPED [5] tests/test_model_alignment.py:148: CUDA not available
+SKIPPED [1] tests/test_model_alignment.py:182: CUDA not available
+50 passed, 10 skipped in 8.45s
