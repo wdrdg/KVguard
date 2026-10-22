@@ -28,6 +28,9 @@ import pandas as pd
 import torch
 
 from .config import REPO_ROOT, artifacts_dir, base_parser, load_config, write_json
+from .wandb_log import finish as wandb_finish
+from .wandb_log import log_table
+from .wandb_log import start as wandb_start
 from .features.monitor import METHODS, StreamingDetector, feature_dim
 
 LOAD_TEXT = (
@@ -42,31 +45,47 @@ def load_token_ids(tokenizer, n: int) -> list[int]:
     return (ids * (n // len(ids) + 1))[:n]
 
 
+def detector_method(method: str) -> str:
+    """Capacity-control heads reuse the kv_mean streaming path with a wider classifier."""
+    return "kv_mean" if method == "kv_mean_matched" else method
+
+
 def make_detector(model, method: str, cfg: dict, batch: int, device) -> tuple[StreamingDetector, dict]:
     from .classifier import ScaledMLP, load_checkpoint
 
-    info = {"classifier_source": None, "threshold_logit": 0.0}
+    bc = cfg["benchmark"]
+    layer = int(bc.get("layer", cfg["model"]["layer_index"]))
+    seed = int(bc.get("seed", cfg["train"]["seeds"][0]))
+    info = {"classifier_source": None, "threshold_logit": 0.0, "layer": layer, "seed": seed}
     clf = None
+    online = detector_method(method)
     if method != "baseline_no_detector":
         out = artifacts_dir(cfg)
-        seed = cfg["train"]["seeds"][0]
-        ck = out / "checkpoints" / method / str(seed)
+        ck = out / "checkpoints" / str(layer) / method / str(seed)
+        legacy = out / "checkpoints" / method / str(seed)
+        if not (ck / "meta.json").exists() and (legacy / "meta.json").exists():
+            ck = legacy
         if (ck / "meta.json").exists():
             clf, _ = load_checkpoint(ck, device)
-            info["classifier_source"] = f"checkpoint:{method}/{seed}"
-            qs = out / "metrics" / "quality_summary.json"
-            if qs.exists():
-                for s in json.loads(qs.read_text()):
-                    if s["classifier"] == method and s["seed"] == seed:
-                        info["threshold_logit"] = s["threshold_logit"]
+            info["classifier_source"] = f"checkpoint:{ck.relative_to(out)}"
+            thr_candidates = [
+                ck / "threshold.json",
+                out / "metrics" / "calibration" / f"layer_{layer}" / method / f"{seed}.json",
+            ]
+            for thr_path in thr_candidates:
+                if thr_path.exists():
+                    info["threshold_logit"] = json.loads(thr_path.read_text())["threshold"]
+                    break
         else:  # same architecture -> same memory/latency; clearly flagged
             c = model.config
-            d = feature_dim(method, c.hidden_size, c.num_key_value_heads * c.head_dim)
-            clf = ScaledMLP(d, cfg["classifier"]["hidden"]).to(device).eval()
+            d = feature_dim(online, c.hidden_size, c.num_key_value_heads * c.head_dim)
+            hidden = int(cfg["classifier"]["matched"]["hidden"]) if method == "kv_mean_matched" else int(
+                cfg["classifier"]["hidden"])
+            clf = ScaledMLP(d, hidden).to(device).eval()
             info["classifier_source"] = "random_init_same_architecture"
         for p in clf.parameters():
             p.requires_grad_(False)
-    det = StreamingDetector(model, method, cfg["model"]["layer_index"], clf, batch=batch, device=device)
+    det = StreamingDetector(model, online, layer, clf, batch=batch, device=device)
     return det, info
 
 
@@ -122,8 +141,12 @@ def worker(cfg: dict, method: str, batch: int, T: int, rep: int) -> dict:
 
     bc = cfg["benchmark"]
     P = bc["prompt_tokens"]
-    row = {"suite": bc["suite"], "method": method, "batch": batch, "prompt_tokens": P, "response_tokens": T,
-           "rep": rep, "status": "ok"}
+    layer = int(bc.get("layer", cfg["model"]["layer_index"]))
+    seed = int(bc.get("seed", cfg["train"]["seeds"][0]))
+    row = {"suite": bc["suite"], "method": method, "layer": layer, "seed": seed, "batch": batch,
+           "prompt_tokens": P, "response_tokens": T, "repeat": rep, "rep": rep, "status": "ok",
+           "decode_covers": "one forward per response token, including the final token flush",
+           "prefill_excluded_from_decode": True}
     device = torch.device("cuda")
     torch.manual_seed(0)
     tok = load_tokenizer(cfg)
@@ -157,6 +180,7 @@ def worker(cfg: dict, method: str, batch: int, T: int, rep: int) -> dict:
         "prefill_ms": r["prefill_s"] * 1e3,
         "decode_ms_per_token": r["decode_s"] * 1e3 / T,
         "tokens_per_second_total": batch * T / r["decode_s"],  # summed over the batch
+        "tokens_per_second": batch * T / r["decode_s"],
         "persistent_state_bytes": r["persistent_state_bytes"],
         "gpu": torch.cuda.get_device_name(0), "torch": torch.__version__,
     })
@@ -165,13 +189,22 @@ def worker(cfg: dict, method: str, batch: int, T: int, rep: int) -> dict:
 
 def summarize(raw: pd.DataFrame) -> pd.DataFrame:
     ok = raw[raw.status == "ok"].copy()
-    keys = ["batch", "prompt_tokens", "response_tokens", "rep"]
+    keys = ["batch", "prompt_tokens", "response_tokens", "repeat"]
+    if "repeat" not in ok.columns and "rep" in ok.columns:
+        ok["repeat"] = ok["rep"]
+        raw = raw.copy()
+        raw["repeat"] = raw["rep"]
     base = ok[ok.method == "baseline_no_detector"].set_index(keys)
     out = []
-    for (m, b, p, t), g in raw.groupby(["method", "batch", "prompt_tokens", "response_tokens"]):
-        row = {"method": m, "batch": b, "prompt_tokens": p, "response_tokens": t,
-               "n_ok": int((g.status == "ok").sum()), "n_oom": int((g.status == "oom").sum()),
-               "n_failed": int((~g.status.isin(["ok", "oom"])).sum())}
+    for (m, b, p, t), g0 in raw.groupby(["method", "batch", "prompt_tokens", "response_tokens"]):
+        row = {"method": m, "layer": g0["layer"].iloc[0] if "layer" in g0 else None,
+               "seed": g0["seed"].iloc[0] if "seed" in g0 else None,
+               "role": g0["role"].iloc[0] if "role" in g0 else "main",
+               "batch": b, "prompt_tokens": p, "response_tokens": t,
+               "n_ok": int((g0.status == "ok").sum()), "n_oom": int((g0.status == "oom").sum()),
+               "n_error": int((g0.status == "error").sum()),
+               "n_failed": int((~g0.status.isin(["ok", "oom"])).sum())}
+        g = g0
         g = g[g.status == "ok"]
         if len(g):
             for c in ("peak_allocated_mib", "peak_reserved_mib", "decode_peak_allocated_mib",
@@ -192,6 +225,8 @@ def summarize(raw: pd.DataFrame) -> pd.DataFrame:
                 row["extra_peak_mib_min"], row["extra_peak_mib_max"] = d.min(), d.max()
                 row["extra_decode_peak_mib_median"] = dd.median()
                 row["latency_increase_rel_median"] = lat.median()
+                row["extra_peak_mib"] = float(d.median())
+                row["latency_overhead_pct"] = 100.0 * float(lat.median())
                 bspread = base.loc[common, "peak_allocated_mib"]
                 noise = max(1.0, float(bspread.max() - bspread.min()))
                 row["extra_peak_reliable"] = bool(abs(d.median()) > 2 * noise)
@@ -215,15 +250,20 @@ def main() -> None:
             row = worker(cfg, args.method, args.batch, args.response_tokens, args.rep)
         except Exception as e:  # noqa: BLE001
             row = {"method": args.method, "batch": args.batch, "response_tokens": args.response_tokens,
-                   "rep": args.rep, "status": "error", "error": f"{type(e).__name__}: {e}"}
+                   "repeat": args.rep, "rep": args.rep, "status": "error", "error": f"{type(e).__name__}: {e}"}
         Path(args.out).write_text(json.dumps(row, default=str))
         return
     if not torch.cuda.is_available():
         sys.exit("benchmark requires CUDA; no CPU numbers are produced or mixed into the CUDA tables.")
     bc = cfg["benchmark"]
-    methods = args.methods or bc["methods"]
+    methods = list(args.methods or bc["methods"])
+    capacity = set(bc.get("capacity_control_methods") or [])
+    for extra in bc.get("capacity_control_methods") or []:
+        if extra not in methods:
+            methods.append(extra)
     for m in methods:
-        assert m in METHODS, m
+        if detector_method(m) not in METHODS:
+            raise SystemExit(f"unknown benchmark method {m}")
     out = artifacts_dir(cfg)
     mdir = out / "metrics"
     mdir.mkdir(exist_ok=True)
@@ -241,18 +281,36 @@ def main() -> None:
             try:
                 row = json.loads(Path(tmp).read_text())
             except (OSError, json.JSONDecodeError):
-                row = {"method": m, "batch": b, "response_tokens": T, "rep": rep, "status": "crashed",
-                       "error": p.stderr[-2000:]}
+                row = {"method": m, "batch": b, "response_tokens": T, "repeat": rep, "rep": rep,
+                       "status": "error", "error": p.stderr[-2000:]}
             os.unlink(tmp) if os.path.exists(tmp) else None
+            if row.get("status") == "crashed":
+                row["status"] = "error"
             row.setdefault("prompt_tokens", bc["prompt_tokens"])
+            row.setdefault("repeat", rep)
+            row.setdefault("layer", int(bc.get("layer", cfg["model"]["layer_index"])))
+            row.setdefault("seed", int(bc.get("seed", cfg["train"]["seeds"][0])))
+            row["role"] = "capacity_control" if m in capacity else "main"
+            for col in ("peak_allocated_mib", "peak_reserved_mib", "decode_peak_allocated_mib",
+                        "decode_ms_per_token", "tokens_per_second_total", "prefill_ms",
+                        "persistent_state_bytes", "extra_peak_mib"):
+                row.setdefault(col, None)
             rows.append(row)
+            peak = row.get("peak_allocated_mib")
+            ms = row.get("decode_ms_per_token")
+            peak_s = "nan" if peak is None else f"{float(peak):.1f}"
+            ms_s = "nan" if ms is None else f"{float(ms):.2f}"
             print(f"[benchmark] {m} B={b} T={T} rep={rep}: {row.get('status')} "
-                  f"peak={row.get('peak_allocated_mib', float('nan')):.1f}MiB "
-                  f"ms/tok={row.get('decode_ms_per_token', float('nan')):.2f}", flush=True)
+                  f"peak={peak_s}MiB ms/tok={ms_s}", flush=True)
     sfx = bc.get("output_suffix", "")
     raw = pd.DataFrame(rows)
     raw.to_csv(mdir / f"memory_latency_raw{sfx}.csv", index=False)
-    summarize(raw).to_csv(mdir / f"memory_latency_summary{sfx}.csv", index=False)
+    summary = summarize(raw)
+    summary.to_csv(mdir / f"memory_latency_summary{sfx}.csv", index=False)
+    run = wandb_start(cfg, job="benchmark", name=f"{cfg['run_name']}-benchmark{sfx}",
+                      extra={"suite": bc.get("suite"), "output_suffix": sfx})
+    log_table(run, "memory_latency_summary", summary)
+    wandb_finish(run)
     from .environment import collect
 
     write_json(mdir / f"benchmark_environment{sfx}.json", collect())

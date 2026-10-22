@@ -1,97 +1,148 @@
-# KVguard：KV cache 均值 vs hidden states 的流式安全检测（最小受控实验）
+# KVguard
 
-实验设计见 [PLAN.md](PLAN.md)。本仓库实现完整管线：环境探测 → 固定 revision 下载 → 数据审计/无泄漏划分/token 对齐 →
-离线 teacher-forcing 特征提取 → classifier 训练 → 流式首次报警评估 → 独立进程 CUDA 显存/延迟基准 → 报告。
+Streaming harmfulness detection from a frozen language model's KV cache. A small head reads a running mean of keys, values, or hidden states while a response is replayed token by token, and raises an alarm at the first logit that crosses a calibration threshold.
 
-## 当前执行状态（如实记录）
+The published comparison is on [FineHarm](https://huggingface.co/datasets/liyang-ict/FineHarm) with `Qwen/Qwen3-4B` at revision `1cfa9a7208912126459214e8b04321603b3df60c`. It is a controlled comparison of native cache features and hidden states. It is not a reproduction of SIREN, ShieldHead, or Kelp, and the FineHarm numbers are teacher-forced replays, not free generations of this backbone.
 
-| 项目 | 状态 |
-|---|---|
-| 代码与配置 | 已实现 |
-| CPU 单元测试 + 微型随机 Qwen3 机制测试 + 合成数据端到端测试 | **已执行，50 passed**（`logs/pytest_dev_container.log`） |
-| 真实 Qwen3-4B GPU 对齐测试（`-m gpu`，10 项） | **未执行**：开发容器无 GPU（`logs/environment_dev_container.json`） |
-| 模型/数据下载 | **未完成**：开发容器的网络策略拒绝 `huggingface.co`（HTTP 403，`logs/download_attempt_dev_container.log`） |
-| 数据 schema 实测审计 | **未执行**（依赖下载）。FineHarm 适配器按字段探测实现，未在真实文件上验证 |
-| Smoke / Pilot / Extended 实验、显存基准 | **未执行**，没有任何结果数字 |
+A separate repository, KVguard_agent, trains pooled K, V, and KV probes on agent trajectories with the TACIT joint-training protocol. The two codebases do not share checkpoints or labels.
 
-`requirements.lock.txt` 是在开发容器（Linux x86_64, Python 3.12）解析出的精确版本，**尚未经过真实 GPU smoke 验证**；
-完成 GPU smoke 后若有调整，应重新 `uv pip freeze` 覆盖。PyPI 上的 `torch==2.14.1` 为 CUDA 13.0 构建，需要相应较新的 NVIDIA 驱动；
-驱动较旧时请改用 PyTorch 官方对应 CUDA 版本的 wheel（同一 torch 版本），并在 `environment.json` 中记录。
+## Held-out FineHarm test
 
-## 环境重建
+Layer index 11 was chosen on the pilot development set and then locked. Thresholds were fit only on safe calibration responses at a 5% response-level false-positive target. The official test split was scored once after `results/full/protocol_lock.json` and was not used to pick a layer, a threshold, or a filter. Numbers below are the mean over seeds 17, 42, and 2026. The full tables, intervals, and per-seed rows are in [results/full/REPORT.md](results/full/REPORT.md).
 
-```bash
-uv venv -p 3.12 .venv            # 或 python3.12 -m venv .venv
-uv pip install -p .venv/bin/python -r requirements.lock.txt
-uv pip install -p .venv/bin/python -e . --no-deps
-source .venv/bin/activate
-python -m kv_safety.environment --config configs/pilot.yaml   # -> artifacts/pilot/environment.json
+| Method | Dim | Parameters | Safe FPR | Premature alarm | Recall by end+32 | Recall by end+128 | Stream AUROC |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `h_mean` | 2560 | 327,937 | 0.044 | 0.278 | 0.650 | 0.692 | 0.996 |
+| `v_mean` | 1024 | 131,329 | 0.046 | 0.253 | 0.645 | 0.702 | 0.995 |
+| `kv_mean` | 2048 | 262,401 | 0.042 | 0.233 | 0.643 | 0.720 | 0.995 |
+
+Read the false-positive rate and the premature-alarm rate before recall. `recall_by_end_plus_32` ignores alarms that fire before the proxy sentence boundary. The span `[a, b]` is the tokens overlapping the first harmful sentence. It is not a human annotation of the first harmful token, and delay after `b` is not a leaked-token count.
+
+On the same locked test split, `Qwen/Qwen3Guard-Stream-4B` (official Unsafe label, not the 5% FineHarm threshold) has safe FPR 0.029 and recall by end+32 of 0.357, with a premature-alarm rate of 0.600. That row is an external baseline. It is not one of the trained heads. See `results/full/metrics/qwen3guard_stream_summary.csv`.
+
+Peak memory of the detector itself is not distinguishable from run-to-run noise (about 1 MiB, `extra_peak_reliable=false`). Persistent state is 4–10 KiB per sample. Decode overhead on a 2048-token response is a few percent. The backbone KV cache is shared by every method.
+
+The released layer-11 checkpoints, scalers, and thresholds are under `results/full/checkpoints/`.
+
+## What this repository contains
+
+```
+configs/          smoke, pilot, full, and follow-up YAML
+src/kv_safety/    prepare, extract, train, calibrate, evaluate, benchmark, report
+scripts/          portable runners; set PYTHON if python is not the intended interpreter
+tests/            CPU unit tests, a tiny-Qwen causality check, and an optional GPU alignment test
+results/          published reports, metrics, figures, and the locked layer-11 checkpoints
 ```
 
-权重和数据放在 HF 缓存（`HF_HOME` 或配置中的 `hf_cache_dir`），不进仓库。`artifacts/` 已 gitignore。
+Not in the repository, and not safe to commit:
 
-## 命令（与 PLAN §8 一致）
+- Hugging Face weights and datasets (`hf_cache/`, or `HF_HOME`)
+- Prepared rows, feature tensors, and score dumps (`artifacts/`)
+- Local alignment notes that quote response text (`local_checks/`)
+- Virtualenvs, conda prefixes, and Weights & Biases logs
+
+`results/` is the snapshot that belongs in git. A fresh run writes to `artifacts/` and does not overwrite `results/`.
+
+## Install
+
+Python 3.11 or 3.12. A CUDA GPU is required for extraction, training, and the memory benchmark. CPU tests do not need one.
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.lock.txt
+pip install -e . --no-deps
+```
+
+`requirements.lock.txt` is the lockfile from the development environment (torch 2.14.1+cu130, transformers 5.19.0). The GPU run that produced `results/full` used an RTX 4080 SUPER 32GB. Install a torch build that matches your CUDA if the lockfile wheel does not.
+
+Weights and datasets stay in the Hugging Face cache:
+
+```bash
+export HF_HOME="$PWD/hf_cache"
+python -m kv_safety.download --config configs/full.yaml
+```
+
+FineHarm is a gated dataset. Accept its terms on Hugging Face and log in before the download. `Qwen/Qwen3-4B` is Apache-2.0. `Qwen/Qwen3GuardTest` is CC-BY-NC-4.0. This repository does not redistribute those files.
+
+Recorded revisions, file hashes, and licenses are in `results/resource_manifest.json`. A config with `revision: null` uses the SHA in that manifest. `offline: true` loads only the local snapshot.
+
+## Reproduce
 
 ```bash
 python -m kv_safety.environment --config configs/pilot.yaml
-python -m kv_safety.download   --config configs/pilot.yaml [--verify-weights]
-python -m kv_safety.data.prepare --config configs/smoke.yaml
+python -m kv_safety.data.prepare --config configs/pilot.yaml
 pytest -q -m "not gpu"
-pytest -q -m gpu                      # 需 CUDA + 已下载的固定 revision；写 artifacts/gpu_alignment_log.json
-python -m kv_safety.extract   --config configs/smoke.yaml
-python -m kv_safety.train     --config configs/smoke.yaml --all-features
-python -m kv_safety.evaluate  --config configs/smoke.yaml --all-features
-python -m kv_safety.benchmark --config configs/smoke.yaml
-python -m kv_safety.report    --config configs/smoke.yaml
-# pilot：同样顺序，--config configs/pilot.yaml（先 data.prepare）
-# extended 显存矩阵（复用 pilot 的 artifacts，输出 *_extended.csv）：
-python -m kv_safety.benchmark --config configs/extended.yaml
-python -m kv_safety.report    --config configs/extended.yaml
+pytest -q -m gpu          # CUDA and the pinned Qwen3-4B snapshot
+
+# Published full run: cleaned train, dev, calibration, then the locked test.
+bash scripts/run_layer11.sh
+python -m kv_safety.report --config configs/full.yaml
 ```
 
-下载完成后 `artifacts/resource_manifest.json` 记录每个资源的 commit SHA、文件 SHA256、许可证、chat template SHA256；
-配置里 `revision: null` 表示使用 manifest 中的 SHA。设置 `offline: true` 后只从本地固定 revision 加载。
+`scripts/env.sh` resolves the repo root and `HF_HOME`. Override the interpreter with `PYTHON=/path/to/python`.
 
-## 关键实现约定
+| Config | Role |
+|---|---|
+| `configs/smoke.yaml` | Overlapping-free prompt groups drawn from the official train split |
+| `configs/pilot.yaml` | Development run used to choose block 11. Test scoring stays off |
+| `configs/full.yaml` | Published train / dev / calibration / test comparison at block 11 |
+| `configs/workshop.yaml` | Allowed only with a protocol lock |
 
-- **模型输入**：`apply_chat_template([user], add_generation_prompt=True, enable_thinking=False)` 的 token ids，接上**单独 tokenize 的 response** ids
-  （即模型自己生成该回答时看到的序列，边界不会落在 token 内部）。末尾 `<|im_end|>` 不输入、不计数、不监督。
-  长度限制 = prompt 模板 tokens + response tokens ≤ 2048，超长直接排除。
-- **句子 → token**：Fast tokenizer offset mapping；与第一句有害句子（去掉首尾空白后的字符区间）有重叠的 token 构成 `[a,b]`（1-based，含端点）。
-  跨句界 token 计入并统计；response 内出现特殊 token、空 offset、非连续映射等一律进入 `alignment_errors.jsonl`，不猜测。
-  完整 response 字段只有在所有句子都能按顺序找到时才使用，否则按 `\n` 连接句子重建。
-- **标签**：`t<a → 0`，`a≤t<b → -100`，`t≥b → 1`；训练每条回答 ≤32 个有效位置（优先 `a-1`、`b`、`b+32`，其余均匀），每位置权重 `1/n`；
-  loss 为 `Σw·BCE/Σw`，scaler 只用 train 且按回答等权；early stopping 用按回答等权的 val BCE。
-- **特征**（block 23）：`h` = 该 block 输出（final norm 之前）；`k,v` = 该 block 写入 DynamicCache 的张量（K 为 k_norm + RoPE 之后），
-  8 个 KV head 按 head-major 展平，不在 head/维度上求均值。均值只覆盖 response token，FP32 累加。
-- **在线检测**：喂入 response token t 的那次 forward 之后得到的分数属于前缀 t；最后一次 forward 即 flush。
-  KV 方法只读 cache 末尾新增位置（视图，不复制整段 cache）；H 方法在 hook 内更新累计和、不保留历史张量。持久状态与 T 无关。
-- **阈值**：在 val 完全安全回答的 `max_t logit` 上取使 FPR≤5% 的最低阈值（严格 `>` 报警，ties 不计入），test 只报告实测 FPR。
-- **基准**：每个 (方法, batch, 长度, 重复) 单独子进程；相同 token ids/长度/cache/SDPA/BF16/LM head/flush 日程；
-  预热后释放再测；无逐 token `.item()`；OOM 记为 OOM。非 CUDA 环境直接拒绝运行，不产生 CPU 数字。
-  若对应 checkpoint 尚未训练，classifier 用同结构随机初始化并在结果中标记 `classifier_source`。
+Test scoring refuses to run unless `--protocol-lock` points at a lock file written after thresholds exist. Dev metrics were used for early stopping, so they are development feedback.
 
-## 测试
+Weights & Biases is off in the checked-in configs. Set `wandb.enabled: true` and `wandb.entity` to your own account if you want it. A missing login does not stop the run.
 
-- `tests/test_running_mean.py`、`test_labels.py`、`test_splits.py`、`test_alignment.py`、`test_metrics.py`、`test_classifier.py`：纯 CPU 单元测试。
-- `tests/test_causality.py`：在**随机初始化的微型 Qwen3**（与 Qwen3-4B 同一份 transformers 代码路径）上验证 cache 中是 post-RoPE K、
-  分块与逐 token 提取一致、前缀不受后缀影响、在线分数与前缀位置对齐、监控不改变 logits、状态大小恒定、请求间 reset、基准 forward 次数一致。
-  这些只验证机制，不代表真实模型数值。
-- `tests/test_pipeline_synthetic.py`：合成数据 + 微型模型跑通 prepare→extract→train→evaluate→report。
-- `tests/test_model_alignment.py`（`-m gpu`）：真实 Qwen3-4B 上的上述检查，含 20 条短文本分块/逐 token 误差记录。
+## Method
 
-## 目录
+**Input.** The prompt is `apply_chat_template([user], add_generation_prompt=True, enable_thinking=False)`. The response is tokenized on its own and concatenated, so the boundary cannot fall inside a token. The final `<|im_end|>` is not an input and is not supervised. Rows longer than 2048 tokens (template plus response) are dropped.
 
+**Span.** A fast tokenizer offset map aligns the first harmful sentence to tokens. Overlapping tokens form `[a, b]`, 1-based and inclusive. A token that crosses the sentence boundary is counted. Special tokens, empty offsets, and non-monotonic maps go to `alignment_errors.jsonl` and are not guessed.
+
+**Labels.** Position `t < a` is 0, `a ≤ t < b` is ignored (`-100`), and `t ≥ b` is 1. A safe response is 0 at every position. Train and dev keep at most 32 supervised positions per response (`a-1`, `b`, `b+32`, then a uniform fill), with weight `1/n`. The loss is weighted BCE. The scaler is fit on train only, with equal weight per response. Early stopping uses the same 32 positions on dev. Streaming scores are a separate token-by-token replay. They do not reuse those 32 positions.
+
+**Features.** `h` is the block output before the final norm. `k` is the post-k-norm, post-RoPE key written into the cache. `v` is the native value in the cache. Eight KV heads are flattened head-major. They are not averaged across heads and they are not the repeated query heads. The running mean covers response tokens only and is accumulated in FP32.
+
+**Online state.** The score after the forward that consumes response token `t` belongs to prefix `t`. The last forward is the flush. KV features read the new cache positions as a view. Hidden-state features update a running sum inside the hook and do not keep the history. Persistent state does not grow with length. Monitors do not change logits, and state is reset between requests.
+
+**Threshold.** On calibration, take `max_t logit` over each safe response and choose the lowest threshold whose response-level FPR is at most 5%. An alarm is a strict `>`. Ties are not alarms. Dev reports the measured FPR and does not refit the threshold.
+
+**Benchmark.** Each method, batch, length, and repeat runs in its own process, with the same token ids, cache, SDPA, BF16, LM head, and flush schedule. There is no per-token `.item()`. OOM is recorded as OOM. The benchmark refuses to run without CUDA.
+
+## Follow-ups
+
+These runs do not edit `results/full/protocol_lock.json` or the response-head thresholds.
+
+| Run | Command | What it changes | Where the numbers are |
+|---|---|---|---|
+| Prompt head | `python -m kv_safety.prompt_head --config configs/full.yaml` | Layer-11 V of the prompt only. Label is the FineHarm filename (`_HP_` / `_BP_`), not response harm | `results/full/prompt_head/` |
+| Fused label | `python -m kv_safety.v_fuse --config configs/full.yaml` | Same response `v_mean`, but a harmful prompt labels every response token as positive | `artifacts/full/v_fuse/` after a local run |
+| Early label | `python -m kv_safety.v_early --config configs/full.yaml` | Early positive labels only on harmful answers | `artifacts/full/v_early/` after a local run |
+| Qwen3GuardTest | `python scripts/eval_qwen3guardtest.py` | Official stream protocol on `Qwen/Qwen3GuardTest` | `results/full/qwen3guardtest/summary.json` |
+| Guard on FineHarm | `bash scripts/run_qwen3guard_after_phase_d.sh` | `Qwen3Guard-Stream-4B` on the locked FineHarm test split | `results/full/metrics/qwen3guard_stream_summary.csv` |
+
+Prompt classification on the FineHarm test split, mean over the same three seeds: `prompt_v_last` macro-style F1 0.952 (AUROC 0.990, FPR 0.036) and `prompt_v_mean` F1 0.977 (AUROC 0.996, FPR 0.039). That task is whether the prompt is harmful. It is not the streaming response task in the table above.
+
+If a follow-up is short on disk it exits. Set `KVGUARD_ALLOW_SCRATCH_DELETE=1` only if you accept deletion of recomputable feature shards, `wandb/`, and `.pip-cache` inside this repo. The script will not delete the model cache or the locked checkpoints.
+
+## Tests
+
+```bash
+pytest -q -m "not gpu"
 ```
-configs/{smoke,pilot,extended}.yaml
-src/kv_safety/
-  environment.py download.py config.py modeling.py
-  data/{fineharm,splits,alignment,labels,prepare,qwen3guard}.py
-  features/{running_mean,cache_reader,hidden_hook,monitor}.py
-  extract.py classifier.py train.py metrics.py evaluate.py benchmark.py report.py
-tests/
-logs/          # 开发容器的环境探测、下载尝试和测试日志
-artifacts/     # gitignored：manifest、特征、checkpoints、metrics、figures、REPORT.md
-```
 
-数据含有害文本：日志只输出 ID、长度、标签和统计；`artifacts/<run>/local_checks/alignment_check.md`（≥20 条对齐人工抽查，含原文）仅留本地。
+- `test_running_mean.py`, `test_labels.py`, `test_splits.py`, `test_alignment.py`, `test_metrics.py`, `test_classifier.py` are CPU unit tests.
+- `test_causality.py` uses a randomly initialized tiny Qwen3, on the same transformers code path, to check post-RoPE keys, chunked versus tokenwise extraction, prefix invariance, online alignment, unchanged logits, constant state size, reset between requests, and benchmark forward counts. Those checks do not certify real-model numerics.
+- `test_pipeline_synthetic.py` runs prepare, extract, train, evaluate, and report on synthetic data.
+- `test_model_alignment.py` (`-m gpu`) repeats the checks on the real Qwen3-4B snapshot. The gate is mean relative error below 0.02 and cosine above 0.98. The max-element ratio is inflated by BF16 residual accumulation and is not the pass condition.
+
+## Limits
+
+- Sentence-boundary labels are a proxy for cumulative prefix harm. A sample of 100 rows is still marked pending human review in the data audit. Model scores are not that review.
+- Dev selected the checkpoints. Only the locked test split is a held-out number.
+- KV is 2048-d and V is 1024-d, so equal width is not equal parameter count. A gap is not, by itself, evidence of complementary information.
+- The label audit and the alignment spot-check that quotes response text stay on the machine that produced them.
+
+## License
+
+Code is MIT. See [LICENSE](LICENSE). Model and dataset licenses stay with their publishers.

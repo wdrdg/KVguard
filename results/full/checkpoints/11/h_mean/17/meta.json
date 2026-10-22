@@ -1,0 +1,27 @@
+{
+  "classifier": "h_mean",
+  "method": "h_mean",
+  "feature": "h_mean",
+  "seed": 17,
+  "layer_index": 11,
+  "hidden": 128,
+  "capacity_control": false,
+  "train_rows": 629930,
+  "train_responses": 20319,
+  "dev_rows": 41981,
+  "dev_responses": 1353,
+  "n_nonfinite": 0,
+  "feature_disk_bytes": 12394221322,
+  "train_config": {
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "batch_size": 512,
+    "max_epochs": 20,
+    "patience": 3
+  },
+  "seconds": 39.1,
+  "best_epoch": 1,
+  "best_dev_response_bce": 0.14082653262421255,
+  "in_dim": 2560,
+  "n_parameters": 327937
+}

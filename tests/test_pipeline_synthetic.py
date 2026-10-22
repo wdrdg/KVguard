@@ -50,11 +50,17 @@ def synthetic_run(tmp_path, tiny_qwen3):
     cfg["artifacts_dir"] = str(tmp_path / "art")
     cfg["resource_manifest"] = str(tmp_path / "resource_manifest.json")
     cfg["model"]["layer_index"] = TINY_LAYER
+    cfg["offline"] = False
     cfg["model"]["expected_config"] = None
-    cfg["data"]["budgets"] = {"train": 30, "val": 20, "test": 20}
+    cfg["data"]["construction"] = "pilot"
+    cfg["data"]["budgets"] = {"train": 30, "dev": 20}
+    cfg["allow_test_eval"] = False
+    cfg["features"]["matrix"] = [{"layer": TINY_LAYER, "features": ["h_last", "h_mean", "k_mean", "v_mean", "kv_mean"]}]
+    cfg["features"].pop("types", None)
     cfg["features"]["chunk_size"] = 16
     cfg["features"]["shard_size"] = 7
-    cfg["classifier"]["matched"] = {"enabled": True, "name": "kv_mean_matched", "base_feature": "kv_mean", "hidden": 12}
+    cfg["classifier"]["matched"] = {"enabled": True, "name": "kv_mean_matched", "base_feature": "kv_mean",
+                                    "layer": TINY_LAYER, "hidden": 12}
     cfg["classifier"]["hidden"] = 8
     cfg["train"]["seeds"] = [17, 42]
     cfg["evaluate"]["bootstrap_samples"] = 20
@@ -76,42 +82,54 @@ def test_full_pipeline(synthetic_run, monkeypatch):
     assert audit["leakage"]["leaked_group_records_removed"] == {"train": 1}
     man = [json.loads(l) for l in open(out / "split_manifest.jsonl")]
     assert all("prompt" not in r and "response" not in r for r in man)  # no raw text
-    groups = {s: {r["prompt_group"] for r in man if r["split"] == s} for s in ("train", "val", "test")}
-    assert not (groups["train"] & groups["test"]) and not (groups["val"] & groups["test"])
+    groups = {s: {r["prompt_group"] for r in man if r["split"] == s} for s in ("train", "dev", "calibration")}
+    assert not (groups["train"] & groups["dev"]) and not (groups["dev"] & groups["calibration"])
+    assert "test" not in {r["split"] for r in man}
     assert (out / "local_checks" / "alignment_check.md").exists()
+    assert (out / "label_audit.jsonl").exists()
 
     fm = {"splits": {}, "layer_index": TINY_LAYER}
-    for split in ("train", "val", "test"):
+    for split in ("train", "dev"):
         fm["splits"][split] = extract_split(model, cfg, out, split)
         (out / "feature_manifest.json").write_text(json.dumps(fm))
-    # resume: second call reuses shards
     again = extract_split(model, cfg, out, "train")
-    assert again["shards"] == fm["splits"]["train"]["shards"]
+    layer_key = str(TINY_LAYER)
+    assert again["layers"][layer_key]["shards"] == fm["splits"]["train"]["layers"][layer_key]["shards"]
     from kv_safety.extract import load_split_features
 
-    X, m = load_split_features(out, "train", "kv_mean")
+    X, m = load_split_features(out, "train", "kv_mean", TINY_LAYER)
     assert X.shape[1] == 64 and X.dtype == np.float32
     per_resp = pd.Series(m["weight"]).groupby(m["sample_idx"]).sum()
     assert np.allclose(per_resp, 1.0, atol=1e-5)
     assert (pd.Series(m["position"]).groupby(m["sample_idx"]).size() <= 32).all()
-    Xv, mv = load_split_features(out, "val", "h_mean")
-    T_val = sum(r["T"] for r in man if r["split"] == "val")
-    assert len(Xv) == T_val
+    Xd, md = load_split_features(out, "dev", "h_mean", TINY_LAYER)
+    assert (pd.Series(md["position"]).groupby(md["sample_idx"]).size() <= 32).all()
+    assert len(Xd) < sum(r["T"] for r in man if r["split"] == "dev") or all(
+        r["T"] <= 32 for r in man if r["split"] == "dev")
 
-    from kv_safety import evaluate, report, train
+    from kv_safety import calibrate, evaluate, report, train
+    from kv_safety.replay import assert_split_allowed
 
+    with pytest.raises(SystemExit):
+        assert_split_allowed(cfg, "test", None)
+    monkeypatch.setattr("kv_safety.modeling.load_model", lambda cfg, device: model)
     monkeypatch.setattr(sys, "argv", ["train", "--config", str(cfg_path), "--all-features"])
     train.main()
-    assert (out / "checkpoints" / "kv_mean_matched" / "42" / "model.pt").exists()
-    monkeypatch.setattr(sys, "argv", ["evaluate", "--config", str(cfg_path), "--all-features"])
+    assert (out / "checkpoints" / str(TINY_LAYER) / "kv_mean_matched" / "42" / "model.pt").exists()
+    monkeypatch.setattr(sys, "argv", ["calibrate", "--config", str(cfg_path), "--split", "calibration",
+                                      "--all-features"])
+    calibrate.main()
+    cal = pd.read_csv(out / "metrics" / "calibration_summary.csv")
+    assert (cal.empirical_fpr <= 0.05 + 1e-9).all()
+    monkeypatch.setattr(sys, "argv", ["evaluate", "--config", str(cfg_path), "--split", "dev", "--all-features"])
     evaluate.main()
     q = pd.read_csv(out / "metrics" / "quality_summary.csv")
-    assert set(q.classifier) == {"h_last", "h_mean", "k_mean", "v_mean", "kv_mean", "kv_mean_matched"}
+    assert set(q.method) == {"h_last", "h_mean", "k_mean", "v_mean", "kv_mean", "kv_mean_matched"}
     assert len(q) == 12
-    assert (q.val_fpr <= 0.05 + 1e-9).all()
+    assert set(q.split) == {"dev"} and set(q.evaluation_role) == {"development"}
     pr = pd.read_parquet(out / "metrics" / "per_response.parquet")
-    assert set(pr.split) == {"val", "test"}
+    assert set(pr.split) == {"dev"}
     monkeypatch.setattr(sys, "argv", ["report", "--config", str(cfg_path)])
     report.main()
     rep = (out / "REPORT.md").read_text()
-    assert "NOT EXECUTED (requires a CUDA GPU)" in rep and "Smoke run" in rep
+    assert "NOT EXECUTED (requires a CUDA GPU)" in rep and "Smoke" in rep

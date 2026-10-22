@@ -1,0 +1,87 @@
+# Workshop config. Do not run until pilot feedback is in. Test scoring needs a protocol lock.
+run_name: workshop
+allow_test_eval: true
+artifacts_dir: artifacts/workshop
+resource_manifest: artifacts/resource_manifest.json
+hf_cache_dir: null
+offline: true
+wandb:
+  project: kvguard
+  entity: null
+  enabled: false
+
+model:
+  id: Qwen/Qwen3-4B
+  revision: null
+  dtype: bfloat16
+  attn_implementation: sdpa
+  layer_index: 23
+  enable_thinking: false
+  expected_config:
+    num_hidden_layers: 36
+    hidden_size: 2560
+    num_key_value_heads: 8
+    head_dim: 128
+
+data:
+  construction: pilot
+  fineharm:
+    repo_id: liyang-ict/FineHarm
+    revision: null
+    files: {train: FineHarm-train.json, val: FineHarm-val.json, test: FineHarm-test.json}
+  qwen3guardtest:
+    repo_id: Qwen/Qwen3GuardTest
+    revision: null
+    enabled_for_eval: false
+  max_length: 2048
+  sentence_joiner: "\n"
+  split_priority: [test, val, train]
+  budgets: {train: 5000, dev: 1000}
+  sample_seed: 2026
+
+features:
+  matrix:
+    - {layer: 23, features: [h_last, h_mean, k_mean, v_mean, kv_mean]}
+    - {layer: 11, features: [h_mean, v_mean, kv_mean]}
+    - {layer: 35, features: [h_mean, v_mean, kv_mean]}
+  chunk_size: 128
+  max_train_positions: 32
+  priority_after_end: 32
+  shard_size: 256
+
+classifier:
+  hidden: 128
+  matched:
+    enabled: false
+    name: kv_mean_matched
+    base_feature: kv_mean
+    layer: 23
+    hidden: 160
+
+train:
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  batch_size: 512
+  max_epochs: 20
+  patience: 3
+  seeds: [17, 42, 2026]
+  device: auto
+
+evaluate:
+  target_fpr: 0.05
+  recall_windows: [32, 128]
+  bootstrap_samples: 1000
+  bootstrap_seed: 0
+
+benchmark:
+  suite: workshop
+  layer: 23
+  seed: 42
+  methods: [baseline_no_detector, h_last, h_mean, k_mean, v_mean, kv_mean]
+  capacity_control_methods: [kv_mean_matched]
+  batch_sizes: [1]
+  prompt_tokens: 128
+  response_tokens: [512, 2048]
+  repeats: 5
+  warmup_response_tokens: 16
+  output_suffix: ""

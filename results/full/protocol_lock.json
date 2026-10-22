@@ -1,0 +1,29 @@
+{
+  "purpose": "Phase D held-out FineHarm test on pilot-selected block 11. Thresholds and the layer were fixed before test scoring.",
+  "allow_test_eval": true,
+  "run_name": "full",
+  "artifacts_dir": "artifacts/full",
+  "split_manifest_sha256": "14c8d413a4d726705015ea5a773e2a367d75811cc578a931ce0eae8f7e2c0e1b",
+  "code_sha256": {
+    "src/kv_safety/evaluate.py": "ebfce9d029bef5ea92dff94f59411cebcb07da983930642b8aedcdd340684fdb",
+    "src/kv_safety/calibrate.py": "9ceb21416dd99d981e7c3c16d6079353e0dd36061aa231cc444ae6c18b045871",
+    "src/kv_safety/replay.py": "e7c97fd6edfb9ad5515c87b96aaf202c624e5e6e7b24a5f745b41d743514dfd2",
+    "src/kv_safety/metrics.py": "af9f9af3779efa00be66d952944e536f065e8303c5605c7de4a298b1ece1a903",
+    "src/kv_safety/train.py": "ccfa08c20c92d1bb451c14f2efa238e30f4f6a49c717aee75b42c5e91690416e",
+    "src/kv_safety/data/labels.py": "0319996f509fbae8afce9b675a64a2541b9662f34b5eb0fea531691b6ae67dc1",
+    "src/kv_safety/data/splits.py": "c00e79a12060bbeca82894aeaec62b5e070216c362d4023fb71e88bf2c72b608",
+    "configs/full.yaml": "ad7f69bcf49963abf97fc58bda170d8cdb22b064fddda8993da80e3d12a9c767"
+  },
+  "git_head": "b916efb1f6957638f0f4621d6e8261ad54ca8671",
+  "model_id": "Qwen/Qwen3-4B",
+  "deployment_layer": 11,
+  "seeds": [
+    17,
+    42,
+    2026
+  ],
+  "target_fpr": 0.05,
+  "decision": "first logit strictly greater than the calibration threshold",
+  "layer_selection": "pilot dev selected block 11 for h_mean, v_mean, kv_mean; test does not change the layer",
+  "n_thresholds": 9
+}

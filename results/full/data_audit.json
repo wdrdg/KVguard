@@ -1,0 +1,649 @@
+{
+  "construction": "pilot",
+  "normalise": {
+    "train": {
+      "file": "liyang-ict/FineHarm@e20a087e2ec0c5550f2a53a508503bb9a6741752/FineHarm-train.json",
+      "schema": {
+        "n_records": 23269,
+        "keys": {
+          "idx": 23269,
+          "prompt": 23269,
+          "response": 23269,
+          "sentences": 23269,
+          "sentence_labels": 23269,
+          "source": 23269,
+          "sentence_num": 23269,
+          "token_num": 23269,
+          "res_token_num": 23269,
+          "words": 23269,
+          "word_labels": 23269
+        },
+        "types": {
+          "idx": {
+            "int": 23269
+          },
+          "prompt": {
+            "str": 23269
+          },
+          "response": {
+            "str": 23269
+          },
+          "sentences": {
+            "list": 23269
+          },
+          "sentence_labels": {
+            "list": 23269
+          },
+          "source": {
+            "str": 23269
+          },
+          "sentence_num": {
+            "int": 23269
+          },
+          "token_num": {
+            "int": 23269
+          },
+          "res_token_num": {
+            "int": 23269
+          },
+          "words": {
+            "list": 23269
+          },
+          "word_labels": {
+            "list": 23269
+          }
+        },
+        "label_values": {
+          "sentence_labels": {
+            "0": 247977,
+            "1": 99370
+          }
+        }
+      },
+      "n_normalised": 23269,
+      "normalise_errors": {},
+      "response_source": {
+        "joined_sentences": 4198,
+        "field:response": 19071
+      },
+      "response_label_counts": {
+        "0": 12997,
+        "1": 10272
+      }
+    },
+    "val": {
+      "file": "liyang-ict/FineHarm@e20a087e2ec0c5550f2a53a508503bb9a6741752/FineHarm-val.json",
+      "schema": {
+        "n_records": 2906,
+        "keys": {
+          "idx": 2906,
+          "prompt": 2906,
+          "response": 2906,
+          "sentences": 2906,
+          "sentence_labels": 2906,
+          "source": 2906,
+          "sentence_num": 2906,
+          "token_num": 2906,
+          "res_token_num": 2906,
+          "words": 2906,
+          "word_labels": 2906
+        },
+        "types": {
+          "idx": {
+            "int": 2906
+          },
+          "prompt": {
+            "str": 2906
+          },
+          "response": {
+            "str": 2906
+          },
+          "sentences": {
+            "list": 2906
+          },
+          "sentence_labels": {
+            "list": 2906
+          },
+          "source": {
+            "str": 2906
+          },
+          "sentence_num": {
+            "int": 2906
+          },
+          "token_num": {
+            "int": 2906
+          },
+          "res_token_num": {
+            "int": 2906
+          },
+          "words": {
+            "list": 2906
+          },
+          "word_labels": {
+            "list": 2906
+          }
+        },
+        "label_values": {
+          "sentence_labels": {
+            "0": 31279,
+            "1": 12093
+          }
+        }
+      },
+      "n_normalised": 2906,
+      "normalise_errors": {},
+      "response_source": {
+        "joined_sentences": 544,
+        "field:response": 2362
+      },
+      "response_label_counts": {
+        "0": 1624,
+        "1": 1282
+      }
+    },
+    "test": {
+      "file": "liyang-ict/FineHarm@e20a087e2ec0c5550f2a53a508503bb9a6741752/FineHarm-test.json",
+      "schema": {
+        "n_records": 2907,
+        "keys": {
+          "idx": 2907,
+          "prompt": 2907,
+          "response": 2907,
+          "sentences": 2907,
+          "sentence_labels": 2907,
+          "source": 2907,
+          "sentence_num": 2907,
+          "token_num": 2907,
+          "res_token_num": 2907,
+          "words": 2907,
+          "word_labels": 2907
+        },
+        "types": {
+          "idx": {
+            "int": 2907
+          },
+          "prompt": {
+            "str": 2907
+          },
+          "response": {
+            "str": 2907
+          },
+          "sentences": {
+            "list": 2907
+          },
+          "sentence_labels": {
+            "list": 2907
+          },
+          "source": {
+            "str": 2907
+          },
+          "sentence_num": {
+            "int": 2907
+          },
+          "token_num": {
+            "int": 2907
+          },
+          "res_token_num": {
+            "int": 2907
+          },
+          "words": {
+            "list": 2907
+          },
+          "word_labels": {
+            "list": 2907
+          }
+        },
+        "label_values": {
+          "sentence_labels": {
+            "0": 31662,
+            "1": 12616
+          }
+        }
+      },
+      "n_normalised": 2907,
+      "normalise_errors": {},
+      "response_source": {
+        "field:response": 2390,
+        "joined_sentences": 517
+      },
+      "response_label_counts": {
+        "0": 1624,
+        "1": 1283
+      }
+    }
+  },
+  "leakage": {
+    "exact_duplicates_removed": {},
+    "leaked_group_records_removed": {
+      "val": 183,
+      "train": 2914
+    },
+    "leaked_groups": 2704
+  },
+  "near_duplicates": {
+    "rule": "within a prompt group, responses equal after NFKC + casefold + whitespace collapse, but not exact string duplicates (those are already removed)",
+    "near_duplicate_groups": 0,
+    "near_duplicate_extra_records": 0,
+    "action": "audited_not_removed"
+  },
+  "prompt_safety_label": {
+    "status_if_unparsed": "unavailable",
+    "not_inferred_from_response": true
+  },
+  "splits": {
+    "train": {
+      "after_leakage": 20355,
+      "alignment_errors": {},
+      "alignment_failures": 0,
+      "missing_sentence_labels": 0,
+      "excluded_too_long": 36,
+      "excluded_context_limit": 0,
+      "eligible": 20319,
+      "harmful_sentence_with_boundary_tokens": 6577,
+      "class_eligible": {
+        "n": 20319,
+        "safe": 11039,
+        "harmful": 9280,
+        "harmful_ratio": 0.4567153895368867,
+        "n_prompt_groups": 15125
+      },
+      "length_quantiles_eligible": {
+        "p0": 4.0,
+        "p10": 41.0,
+        "p25": 114.0,
+        "p50": 272.0,
+        "p75": 491.0,
+        "p90": 704.0,
+        "p99": 1450.6399999999994,
+        "p100": 1999.0,
+        "mean": 340.8895122791476
+      },
+      "supervision_eligible": {
+        "n": 20319,
+        "mean_valid_position_fraction": 0.9568204624188894,
+        "mean_ignored_position_fraction": 0.04317953758111065
+      },
+      "prompt_safety": {
+        "n": 20319,
+        "n_known": 20319,
+        "coverage": 1.0,
+        "rule": "FineHarm source filename _HP_/_BP_ is the prompt tag; _HR_/_BR_ is not used. Missing or unparsed source is unavailable and is not inferred from the response.",
+        "status": "available"
+      },
+      "sampling": {
+        "available": {
+          "safe": 11039,
+          "harmful": 9280
+        },
+        "selected": {
+          "safe": 11039,
+          "harmful": 9280
+        },
+        "sampling_ratio": {
+          "safe": 1.0,
+          "harmful": 1.0
+        },
+        "harmful_prompt_safe_available": 4078,
+        "harmful_prompt_safe_selected": 4078
+      },
+      "retained": {
+        "n": 20319,
+        "safe": 11039,
+        "harmful": 9280,
+        "harmful_ratio": 0.4567153895368867,
+        "n_prompt_groups": 15125
+      },
+      "length_quantiles": {
+        "p0": 4.0,
+        "p10": 41.0,
+        "p25": 114.0,
+        "p50": 272.0,
+        "p75": 491.0,
+        "p90": 704.0,
+        "p99": 1450.6399999999994,
+        "p100": 1999.0,
+        "mean": 340.8895122791476
+      },
+      "supervision": {
+        "n": 20319,
+        "mean_valid_position_fraction": 0.9568204624188894,
+        "mean_ignored_position_fraction": 0.04317953758111065
+      }
+    },
+    "val": {
+      "after_leakage": 2723,
+      "alignment_errors": {},
+      "alignment_failures": 0,
+      "missing_sentence_labels": 0,
+      "excluded_too_long": 5,
+      "excluded_context_limit": 0,
+      "eligible": 2718,
+      "harmful_sentence_with_boundary_tokens": 862,
+      "class_eligible": {
+        "n": 2718,
+        "safe": 1492,
+        "harmful": 1226,
+        "harmful_ratio": 0.45106696100073584,
+        "n_prompt_groups": 2641
+      },
+      "length_quantiles_eligible": {
+        "p0": 6.0,
+        "p10": 39.0,
+        "p25": 108.0,
+        "p50": 272.0,
+        "p75": 485.0,
+        "p90": 695.0,
+        "p99": 1464.6399999999994,
+        "p100": 1982.0,
+        "mean": 337.52317880794703
+      },
+      "supervision_eligible": {
+        "n": 2718,
+        "mean_valid_position_fraction": 0.9572909547563206,
+        "mean_ignored_position_fraction": 0.0427090452436794
+      },
+      "prompt_safety": {
+        "n": 2718,
+        "n_known": 2718,
+        "coverage": 1.0,
+        "rule": "FineHarm source filename _HP_/_BP_ is the prompt tag; _HR_/_BR_ is not used. Missing or unparsed source is unavailable and is not inferred from the response.",
+        "status": "available"
+      }
+    },
+    "test": {
+      "after_leakage": 2907,
+      "alignment_errors": {},
+      "alignment_failures": 0,
+      "missing_sentence_labels": 0,
+      "excluded_too_long": 9,
+      "excluded_context_limit": 0,
+      "eligible": 2898,
+      "harmful_sentence_with_boundary_tokens": 913,
+      "class_eligible": {
+        "n": 2898,
+        "safe": 1623,
+        "harmful": 1275,
+        "harmful_ratio": 0.43995859213250516,
+        "n_prompt_groups": 2796
+      },
+      "length_quantiles_eligible": {
+        "p0": 3.0,
+        "p10": 45.0,
+        "p25": 116.0,
+        "p50": 268.0,
+        "p75": 486.0,
+        "p90": 695.3000000000002,
+        "p99": 1598.0900000000006,
+        "p100": 1918.0,
+        "mean": 342.9775707384403
+      },
+      "supervision_eligible": {
+        "n": 2898,
+        "mean_valid_position_fraction": 0.9590496531269056,
+        "mean_ignored_position_fraction": 0.04095034687309437
+      },
+      "prompt_safety": {
+        "n": 2898,
+        "n_known": 2898,
+        "coverage": 1.0,
+        "rule": "FineHarm source filename _HP_/_BP_ is the prompt tag; _HR_/_BR_ is not used. Missing or unparsed source is unavailable and is not inferred from the response.",
+        "status": "available"
+      },
+      "retained": {
+        "n": 2898,
+        "safe": 1623,
+        "harmful": 1275,
+        "harmful_ratio": 0.43995859213250516,
+        "n_prompt_groups": 2796
+      }
+    },
+    "dev": {
+      "pool": {
+        "n": 1353,
+        "safe": 742,
+        "harmful": 611,
+        "harmful_ratio": 0.4515890613451589,
+        "n_prompt_groups": 1320
+      },
+      "sampling": {
+        "capped": false,
+        "selected_responses": 1353,
+        "selected_groups": 1320
+      },
+      "retained": {
+        "n": 1353,
+        "safe": 742,
+        "harmful": 611,
+        "harmful_ratio": 0.4515890613451589,
+        "n_prompt_groups": 1320
+      },
+      "length_quantiles": {
+        "p0": 7.0,
+        "p10": 41.0,
+        "p25": 106.0,
+        "p50": 278.0,
+        "p75": 495.0,
+        "p90": 702.8,
+        "p99": 1421.9200000000005,
+        "p100": 1864.0,
+        "mean": 341.0192165558019
+      },
+      "supervision": {
+        "n": 1353,
+        "mean_valid_position_fraction": 0.9562190301604528,
+        "mean_ignored_position_fraction": 0.043780969839547004
+      },
+      "prompt_safety": {
+        "n": 1353,
+        "n_known": 1353,
+        "coverage": 1.0,
+        "rule": "FineHarm source filename _HP_/_BP_ is the prompt tag; _HR_/_BR_ is not used. Missing or unparsed source is unavailable and is not inferred from the response.",
+        "status": "available"
+      }
+    },
+    "calibration": {
+      "pool": {
+        "n": 1365,
+        "safe": 750,
+        "harmful": 615,
+        "harmful_ratio": 0.45054945054945056,
+        "n_prompt_groups": 1321
+      },
+      "retained_safe": {
+        "n": 750,
+        "safe": 750,
+        "harmful": 0,
+        "harmful_ratio": 0.0,
+        "n_prompt_groups": 732
+      },
+      "excluded_harmful_from_calibration_file": 615,
+      "length_quantiles": {
+        "p0": 6.0,
+        "p10": 26.0,
+        "p25": 64.25,
+        "p50": 167.0,
+        "p75": 323.0,
+        "p90": 521.5000000000001,
+        "p99": 1081.509999999999,
+        "p100": 1809.0,
+        "mean": 231.46666666666667
+      },
+      "supervision": {
+        "n": 750,
+        "mean_valid_position_fraction": 1.0,
+        "mean_ignored_position_fraction": 0.0
+      },
+      "prompt_safety": {
+        "n": 750,
+        "n_known": 750,
+        "coverage": 1.0,
+        "rule": "FineHarm source filename _HP_/_BP_ is the prompt tag; _HR_/_BR_ is not used. Missing or unparsed source is unavailable and is not inferred from the response.",
+        "status": "available"
+      },
+      "note": "threshold calibration uses every safe response in this pool; harmful pool rows are not scored"
+    }
+  },
+  "heldout_test": {
+    "status": "prepared_not_scored",
+    "eligible": 2898,
+    "class_eligible": {
+      "n": 2898,
+      "safe": 1623,
+      "harmful": 1275,
+      "harmful_ratio": 0.43995859213250516,
+      "n_prompt_groups": 2796
+    },
+    "excluded_too_long": 9,
+    "alignment_failures": 0,
+    "scored": false,
+    "reason": "rows materialised for Phase D; scoring waits for protocol_lock after calibration"
+  },
+  "val_partition": {
+    "stratum_groups": {
+      "safe": {
+        "groups": 1429,
+        "first": 714,
+        "second": 715
+      },
+      "mixed": {
+        "groups": 34,
+        "first": 17,
+        "second": 17
+      },
+      "harmful": {
+        "groups": 1178,
+        "first": 589,
+        "second": 589
+      }
+    },
+    "n_first": 1353,
+    "n_second": 1365,
+    "n_groups_first": 1320,
+    "n_groups_second": 1321
+  },
+  "manifest_counts": {
+    "train": 20319,
+    "dev": 1353,
+    "calibration": 750,
+    "test": 2898
+  },
+  "manifest_prompt_group_overlap": {
+    "overlaps": []
+  },
+  "label_audit": {
+    "n": 100,
+    "review_status": "pending_human_review",
+    "categories": {
+      "first_sentence_harmful": 25,
+      "later_harmful": 25,
+      "harmful_prompt_safe_response": 25,
+      "safe_response": 25
+    },
+    "note": "[a, b] is an uncertain span inside the first harmful sentence, not a confirmed first harmful token. Cumulative labels are not the current-sentence label. No model self-check is treated as human review."
+  },
+  "qwen3guardtest": {
+    "root": "Qwen/Qwen3GuardTest@8a8391a583d65dc5f2be59e815404fe54289fa7c",
+    "files": {
+      "response_loc.jsonl": {
+        "n_rows": 813,
+        "columns": {
+          "source": "str",
+          "unique_id": "int64",
+          "message": "object",
+          "input_ids": "object",
+          "unsafe_type": "str",
+          "unsafe_start_index": "int64",
+          "unsafe_end_index": "int64",
+          "label": "str"
+        },
+        "source_counts": {
+          "BeaverTails": 813
+        },
+        "label_counts": {
+          "Unsafe": 813
+        },
+        "unsafe_start_index_summary": {
+          "n": 813,
+          "min": 15.0,
+          "max": 120.0
+        },
+        "unsafe_end_index_summary": {
+          "n": 813,
+          "min": 24.0,
+          "max": 167.0
+        },
+        "prompt_overlap_with_fineharm": "not computed (no flat prompt column; inspect message format)"
+      },
+      "thinking.jsonl": {
+        "n_rows": 1059,
+        "columns": {
+          "unique_id": "int64",
+          "message": "object",
+          "unsafe_type": "str",
+          "source": "str",
+          "label": "str",
+          "input_ids": "object",
+          "unsafe_end_index": "float64",
+          "unsafe_start_index": "float64"
+        },
+        "source_counts": {
+          "huihui-ai/GLM-Z1-9B-0414-abliterated": 249,
+          "zai-org/GLM-Z1-9B-0414": 228,
+          "Qwen/Qwen3-8B": 220,
+          "huihui-ai/Qwen3-8B-abliterated": 201,
+          "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": 161
+        },
+        "label_counts": {
+          "Unsafe": 569,
+          "Safe": 490
+        },
+        "unsafe_start_index_summary": {
+          "n": 569,
+          "min": 15.0,
+          "max": 322.0
+        },
+        "unsafe_end_index_summary": {
+          "n": 569,
+          "min": 33.0,
+          "max": 346.0
+        },
+        "prompt_overlap_with_fineharm": "not computed (no flat prompt column; inspect message format)"
+      },
+      "thinking_loc.jsonl": {
+        "n_rows": 569,
+        "columns": {
+          "unique_id": "int64",
+          "message": "object",
+          "input_ids": "object",
+          "unsafe_type": "str",
+          "unsafe_start_index": "int64",
+          "unsafe_end_index": "int64",
+          "source": "str",
+          "label": "str"
+        },
+        "source_counts": {
+          "huihui-ai/GLM-Z1-9B-0414-abliterated": 212,
+          "huihui-ai/Qwen3-8B-abliterated": 175,
+          "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": 91,
+          "zai-org/GLM-Z1-9B-0414": 59,
+          "Qwen/Qwen3-8B": 32
+        },
+        "label_counts": {
+          "Unsafe": 569
+        },
+        "unsafe_start_index_summary": {
+          "n": 569,
+          "min": 15.0,
+          "max": 322.0
+        },
+        "unsafe_end_index_summary": {
+          "n": 569,
+          "min": 33.0,
+          "max": 346.0
+        },
+        "prompt_overlap_with_fineharm": "not computed (no flat prompt column; inspect message format)"
+      }
+    },
+    "scored": false
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "os": "Linux-5.15.0-25-generic-x86_64-with-glibc2.35",
+  "python": "3.12.15",
+  "python_executable": "python",
+  "cpu_count": 128,
+  "ram_total_gib": 503.53,
+  "nvidia_smi": "NVIDIA GeForce RTX 4080 SUPER, 32760 MiB, 595.71.05",
+  "disk": {
+    "path": ".",
+    "free_gib": 35.63,
+    "total_gib": 50.0
+  },
+  "hf_home": "hf_cache",
+  "packages": {
+    "torch": "2.14.1",
+    "transformers": "5.19.0",
+    "accelerate": "1.15.0",
+    "huggingface_hub": "2.2.0",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.23.3",
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1",
+    "pandas": "3.0.6",
+    "pyarrow": "26.0.0",
+    "PyYAML": "6.0.3",
+    "pytest": "9.1.1",
+    "tqdm": "4.70.1",
+    "matplotlib": "3.11.2",
+    "datasets": "5.1.0"
+  },
+  "torch_cuda_build": "13.0",
+  "cuda_available": true,
+  "gpus": [
+    {
+      "index": 0,
+      "name": "NVIDIA GeForce RTX 4080 SUPER",
+      "total_mib": 32230,
+      "capability": "8.9"
+    }
+  ],
+  "bf16_supported": true,
+  "cudnn": 92400
+}

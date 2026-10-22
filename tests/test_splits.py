@@ -1,5 +1,14 @@
 from kv_safety.data.fineharm import join_sentences, locate_sentences, normalise_record
-from kv_safety.data.splits import count_leaked_groups, prompt_group, resolve_leakage, stratified_sample
+from kv_safety.data.fineharm import prompt_safety_from_source
+from kv_safety.data.splits import (
+    audit_near_duplicates,
+    count_leaked_groups,
+    partition_prompt_groups,
+    prompt_group,
+    resolve_leakage,
+    sample_by_prompt_group,
+    stratified_sample,
+)
 
 
 def rec(split, i, prompt, response, label):
@@ -40,6 +49,33 @@ def test_stratified_sample_balances_and_is_deterministic():
     assert info["selected"] == {"safe": 20, "harmful": 20}
     c, info = stratified_sample(recs, 80, seed=3)  # harmful scarce -> take all 30, fill with safe
     assert info["selected"] == {"safe": 50, "harmful": 30}
+
+
+def test_dev_and_calibration_prompt_groups_are_disjoint():
+    recs = []
+    for i in range(30):
+        recs.append({**rec("val", i, f"prompt {i}", "response", i % 3 == 0),
+                     "prompt_group": f"g{i // 2}"})
+    dev, cal, info = partition_prompt_groups(recs, seed=4)
+    assert info["n_groups_first"] and info["n_groups_second"]
+    assert not ({r["prompt_group"] for r in dev} & {r["prompt_group"] for r in cal})
+    sampled, meta = sample_by_prompt_group(dev, budget=6, seed=4)
+    assert meta["selected_responses"] <= 6
+    assert len({r["prompt_group"] for r in sampled}) == meta["selected_groups"]
+
+
+def test_near_duplicates_are_counted_not_removed():
+    rows = [rec("train", 0, "Prompt", "Hello THERE", 0), rec("train", 1, "Prompt", "hello there", 0)]
+    for r in rows:
+        r["prompt_group"] = prompt_group(r["prompt"])
+    audit = audit_near_duplicates(rows)
+    assert audit["near_duplicate_groups"] == 1 and audit["action"] == "audited_not_removed"
+
+
+def test_prompt_safety_comes_from_source_filename_not_response_half():
+    assert prompt_safety_from_source("wildguard_HP_BR.json") == (1, "source_filename_HP")
+    assert prompt_safety_from_source("wildguard_BP_HR.json") == (0, "source_filename_BP")
+    assert prompt_safety_from_source("other.json")[0] is None
 
 
 def test_sentence_location_and_join():

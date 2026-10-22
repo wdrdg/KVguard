@@ -99,6 +99,21 @@ def join_sentences(sentences: list[str], joiner: str) -> tuple[str, list[tuple[i
     return "".join(parts), spans
 
 
+def prompt_safety_from_source(source: str | None) -> tuple[int | None, str]:
+    """FineHarm `source` filenames encode the prompt category as ``_BP_`` / ``_HP_``.
+
+    The response half of those names (``_BR_`` / ``_HR_``) is not consulted. This is the dataset's
+    own prompt tag, not a label inferred from the response. Unrecognised values stay unavailable.
+    """
+    if not isinstance(source, str) or not source:
+        return None, "missing_source"
+    if "_HP_" in source:
+        return 1, "source_filename_HP"
+    if "_BP_" in source:
+        return 0, "source_filename_BP"
+    return None, "source_filename_unparsed"
+
+
 def normalise_record(r: dict, source_split: str, index: int, joiner: str) -> tuple[dict | None, str | None]:
     pk = _first_key(r, PROMPT_KEYS)
     if pk is None or not isinstance(r[pk], str):
@@ -135,6 +150,9 @@ def normalise_record(r: dict, source_split: str, index: int, joiner: str) -> tup
             return None, f"response_label_conflict:{lk}"
     rid = r.get("id", r.get("idx"))
     rid = f"{source_split}-{rid if rid is not None else index}"
+    dataset_source = r.get("source") if isinstance(r.get("source"), str) else None
+    prompt_safety, prompt_safety_rule = prompt_safety_from_source(dataset_source)
+    harm_at = labels.index(1) if response_label else None
     return {
         "id": rid,
         "source_split": source_split,
@@ -145,6 +163,11 @@ def normalise_record(r: dict, source_split: str, index: int, joiner: str) -> tup
         "sentence_labels": labels,
         "response_label": response_label,
         "response_source": source,
+        "dataset_source": dataset_source,
+        "prompt_safety_label": prompt_safety,
+        "prompt_safety_rule": prompt_safety_rule,
+        "n_sentences": len(labels),
+        "harm_sentence_index": harm_at,
     }, None
 
 

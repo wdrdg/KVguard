@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from .config import apply_offline, pinned_revision, read_manifest
+from .config import apply_offline, configured_layers, pinned_revision, read_manifest
 from .features.cache_reader import check_model_cache_compat
 
 DTYPES = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}
@@ -57,8 +57,10 @@ def prepare_frozen(model, cfg: dict) -> None:
     impl = getattr(model.config, "_attn_implementation", None)
     if impl != mc["attn_implementation"]:
         raise RuntimeError(f"attention backend {impl} != configured {mc['attn_implementation']}")
-    if not (0 <= mc["layer_index"] < model.config.num_hidden_layers):
-        raise ValueError("layer_index out of range")
+    n_layers = model.config.num_hidden_layers
+    for layer in configured_layers(cfg):
+        if not (0 <= layer < n_layers):
+            raise ValueError(f"layer {layer} out of range for num_hidden_layers={n_layers}")
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)

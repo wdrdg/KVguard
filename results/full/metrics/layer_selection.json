@@ -1,0 +1,42 @@
+{
+  "rule": "For each of h_mean, v_mean and kv_mean, rank layers by mean recall_by_end_plus_32 over seeds on dev. Ties break to lower premature_alarm_rate, then lower safe_response_fpr, then the smaller layer index. Block 11 stays the reference comparison and is not replaced by this ranking. Dev was used for early stopping, so this is development selection, not a test result.",
+  "reference_layer": 11,
+  "by_feature": {
+    "h_mean": {
+      "selected_layer": 11,
+      "ranking": [
+        {
+          "layer": 11,
+          "n_seeds": 3,
+          "recall_by_end_plus_32": 0.6590289143480633,
+          "premature_alarm_rate": 0.2580469176213857,
+          "safe_response_fpr": 0.05795148247978437
+        }
+      ]
+    },
+    "v_mean": {
+      "selected_layer": 11,
+      "ranking": [
+        {
+          "layer": 11,
+          "n_seeds": 3,
+          "recall_by_end_plus_32": 0.6590289143480633,
+          "premature_alarm_rate": 0.23840698308783415,
+          "safe_response_fpr": 0.05615453728661276
+        }
+      ]
+    },
+    "kv_mean": {
+      "selected_layer": 11,
+      "ranking": [
+        {
+          "layer": 11,
+          "n_seeds": 3,
+          "recall_by_end_plus_32": 0.6546644844517185,
+          "premature_alarm_rate": 0.22476813966175668,
+          "safe_response_fpr": 0.04851752021563343
+        }
+      ]
+    }
+  }
+}

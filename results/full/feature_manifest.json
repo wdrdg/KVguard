@@ -1,0 +1,164 @@
+{
+  "splits": {
+    "train": {
+      "n_responses": 20319,
+      "layers": {
+        "11": {
+          "shards": [
+            "shard_00000.npz",
+            "shard_00001.npz",
+            "shard_00002.npz",
+            "shard_00003.npz",
+            "shard_00004.npz",
+            "shard_00005.npz",
+            "shard_00006.npz",
+            "shard_00007.npz",
+            "shard_00008.npz",
+            "shard_00009.npz",
+            "shard_00010.npz",
+            "shard_00011.npz",
+            "shard_00012.npz",
+            "shard_00013.npz",
+            "shard_00014.npz",
+            "shard_00015.npz",
+            "shard_00016.npz",
+            "shard_00017.npz",
+            "shard_00018.npz",
+            "shard_00019.npz",
+            "shard_00020.npz",
+            "shard_00021.npz",
+            "shard_00022.npz",
+            "shard_00023.npz",
+            "shard_00024.npz",
+            "shard_00025.npz",
+            "shard_00026.npz",
+            "shard_00027.npz",
+            "shard_00028.npz",
+            "shard_00029.npz",
+            "shard_00030.npz",
+            "shard_00031.npz",
+            "shard_00032.npz",
+            "shard_00033.npz",
+            "shard_00034.npz",
+            "shard_00035.npz",
+            "shard_00036.npz",
+            "shard_00037.npz",
+            "shard_00038.npz",
+            "shard_00039.npz",
+            "shard_00040.npz",
+            "shard_00041.npz",
+            "shard_00042.npz",
+            "shard_00043.npz",
+            "shard_00044.npz",
+            "shard_00045.npz",
+            "shard_00046.npz",
+            "shard_00047.npz",
+            "shard_00048.npz",
+            "shard_00049.npz",
+            "shard_00050.npz",
+            "shard_00051.npz",
+            "shard_00052.npz",
+            "shard_00053.npz",
+            "shard_00054.npz",
+            "shard_00055.npz",
+            "shard_00056.npz",
+            "shard_00057.npz",
+            "shard_00058.npz",
+            "shard_00059.npz",
+            "shard_00060.npz",
+            "shard_00061.npz",
+            "shard_00062.npz",
+            "shard_00063.npz",
+            "shard_00064.npz",
+            "shard_00065.npz",
+            "shard_00066.npz",
+            "shard_00067.npz",
+            "shard_00068.npz",
+            "shard_00069.npz",
+            "shard_00070.npz",
+            "shard_00071.npz",
+            "shard_00072.npz",
+            "shard_00073.npz",
+            "shard_00074.npz",
+            "shard_00075.npz",
+            "shard_00076.npz",
+            "shard_00077.npz",
+            "shard_00078.npz",
+            "shard_00079.npz"
+          ],
+          "features": [
+            "h_mean",
+            "v_mean",
+            "k_mean"
+          ],
+          "n_responses": 20319,
+          "positions": "selected<=32",
+          "dtype": "float32"
+        }
+      },
+      "seconds": 2776.1,
+      "positions": "selected<=32"
+    },
+    "dev": {
+      "n_responses": 1353,
+      "layers": {
+        "11": {
+          "shards": [
+            "shard_00000.npz",
+            "shard_00001.npz",
+            "shard_00002.npz",
+            "shard_00003.npz",
+            "shard_00004.npz",
+            "shard_00005.npz"
+          ],
+          "features": [
+            "h_mean",
+            "v_mean",
+            "k_mean"
+          ],
+          "n_responses": 1353,
+          "positions": "selected<=32",
+          "dtype": "float32"
+        }
+      },
+      "seconds": 180.6,
+      "positions": "selected<=32"
+    }
+  },
+  "model_id": "Qwen/Qwen3-4B",
+  "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+  "chat_template_sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
+  "layers": [
+    11
+  ],
+  "reference_layer": 11,
+  "dtype_backbone": "bfloat16",
+  "accumulator_dtype": "float32",
+  "attn_implementation": "sdpa",
+  "chunk_size": 128,
+  "device": "cuda",
+  "torch": "2.14.1+cu130",
+  "features": {
+    "11": {
+      "h_mean": 2560,
+      "v_mean": 1024,
+      "k_mean": 1024,
+      "kv_mean": 2048
+    }
+  },
+  "disk": {
+    "free_bytes_before": 38373232640,
+    "need_bytes": 12478556160,
+    "deleted": [],
+    "action": "enough_space"
+  },
+  "definitions": {
+    "h": "output of the named decoder block (residual stream, before final norm)",
+    "k": "K stored in the DynamicCache after k_norm and RoPE; 8 KV heads flattened head-major",
+    "v": "V stored in the DynamicCache (no RoPE); 8 KV heads flattened head-major",
+    "kv_mean": "concat(k_mean, v_mean), not stored separately",
+    "positions": "1-based response-token positions; prompt, template and EOS are never averaged",
+    "storage": "train and dev keep at most 32 positions; streaming scores are replayed later"
+  },
+  "feature_disk_bytes": 12394221322
+}

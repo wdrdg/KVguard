@@ -1,4 +1,6 @@
 .venv/
+.conda/
+.pip-cache/
 __pycache__/
 *.pyc
 *.egg-info/
@@ -6,3 +8,7 @@ __pycache__/
 artifacts/
 hf_cache/
 local_checks/
+wandb/
+logs/
+*.log
+.tmp/

@@ -1,17 +1,21 @@
-# Extended suite: same data/classifiers as pilot (shares its artifacts), larger resource matrix.
-# Run only after pilot; the extraction/training steps are reused from artifacts/pilot.
+# Extended resource matrix only. Reuses pilot artifacts. Not part of this pilot run.
 run_name: extended
-artifacts_dir: artifacts/pilot          # relative to repo root (or absolute)
+allow_test_eval: false
+artifacts_dir: artifacts/pilot
 resource_manifest: artifacts/resource_manifest.json
-hf_cache_dir: null                      # null -> HF default (HF_HOME / ~/.cache/huggingface)
-offline: false                          # true -> HF_HUB_OFFLINE, only pinned local revisions
+hf_cache_dir: null
+offline: true
+wandb:
+  project: kvguard
+  entity: null
+  enabled: false
 
 model:
   id: Qwen/Qwen3-4B
-  revision: null                        # null -> commit SHA pinned in resource_manifest.json
+  revision: null
   dtype: bfloat16
   attn_implementation: sdpa
-  layer_index: 23                       # 0-based; the 24th decoder block
+  layer_index: 23
   enable_thinking: false
   expected_config:
     num_hidden_layers: 36
@@ -20,6 +24,7 @@ model:
     head_dim: 128
 
 data:
+  construction: pilot
   fineharm:
     repo_id: liyang-ict/FineHarm
     revision: null
@@ -27,27 +32,30 @@ data:
   qwen3guardtest:
     repo_id: Qwen/Qwen3GuardTest
     revision: null
-    enabled_for_eval: false             # downloaded + audited only in this phase
-  max_length: 2048                      # template + prompt + full response tokens
-  sentence_joiner: "\n"                 # only used when no trustworthy full response field exists
-  split_priority: [test, val, train]    # leaked prompt groups are kept in the earliest listed split
-  budgets: {train: 5000, val: 1000, test: 2000}
+    enabled_for_eval: false
+  max_length: 2048
+  sentence_joiner: "\n"
+  split_priority: [test, val, train]
+  budgets: {train: 5000, dev: 1000}
   sample_seed: 2026
 
 features:
-  types: [h_last, h_mean, k_mean, v_mean, kv_mean]
+  matrix:
+    - {layer: 23, features: [h_last, h_mean, k_mean, v_mean, kv_mean]}
+    - {layer: 11, features: [h_mean, v_mean, kv_mean]}
+    - {layer: 35, features: [h_mean, v_mean, kv_mean]}
   chunk_size: 128
   max_train_positions: 32
-  priority_after_end: 32                # keep b+32 when available
-  eval_dtype: float32                   # val/test store every response position
-  shard_size: 256                       # responses per .npz shard
+  priority_after_end: 32
+  shard_size: 256
 
 classifier:
   hidden: 128
-  matched:                              # parameter-count control, not a main comparison
-    enabled: true
+  matched:
+    enabled: false
     name: kv_mean_matched
     base_feature: kv_mean
+    layer: 23
     hidden: 160
 
 train:
@@ -64,14 +72,16 @@ evaluate:
   recall_windows: [32, 128]
   bootstrap_samples: 1000
   bootstrap_seed: 0
-  length_bins: [0, 128, 256, 512, 1024, 2048]
 
 benchmark:
   suite: extended
+  layer: 23
+  seed: 42
   methods: [baseline_no_detector, h_last, h_mean, k_mean, v_mean, kv_mean]
+  capacity_control_methods: [kv_mean_matched]
   batch_sizes: [1, 4]
   prompt_tokens: 128
   response_tokens: [512, 2048, 8192]
   repeats: 5
   warmup_response_tokens: 16
-  output_suffix: "_extended"            # keeps pilot benchmark files intact
+  output_suffix: "_extended"

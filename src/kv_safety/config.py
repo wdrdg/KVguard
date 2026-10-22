@@ -63,20 +63,99 @@ def apply_offline(cfg: dict) -> None:
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 
+def feature_matrix(cfg: dict) -> list[dict]:
+    """Explicit layer/feature blocks. No implicit cartesian product across layers."""
+    block = cfg["features"].get("matrix")
+    if block:
+        return [{"layer": int(b["layer"]), "features": list(b["features"])} for b in block]
+    return [{"layer": int(cfg["model"]["layer_index"]), "features": list(cfg["features"]["types"])}]
+
+
+def classifier_jobs(cfg: dict) -> list[dict]:
+    """One trainable head per configured (layer, feature), plus the optional matched-width control."""
+    jobs = []
+    seen = set()
+    hidden = int(cfg["classifier"]["hidden"])
+    for block in feature_matrix(cfg):
+        for feat in block["features"]:
+            key = (block["layer"], feat)
+            if key in seen:
+                continue
+            seen.add(key)
+            jobs.append({
+                "layer": block["layer"],
+                "name": feat,
+                "feature": feat,
+                "hidden": hidden,
+                "capacity_control": False,
+            })
+    matched = cfg["classifier"].get("matched") or {}
+    if matched.get("enabled"):
+        jobs.append({
+            "layer": int(matched.get("layer", cfg["model"]["layer_index"])),
+            "name": matched["name"],
+            "feature": matched["base_feature"],
+            "hidden": int(matched["hidden"]),
+            "capacity_control": True,
+        })
+    return jobs
+
+
+def select_jobs(cfg: dict, all_features: bool, features: list[str] | None,
+                layers: list[int] | None) -> list[dict]:
+    jobs = classifier_jobs(cfg)
+    if not all_features and features:
+        wanted = set(features)
+        jobs = [j for j in jobs if j["name"] in wanted]
+    if layers:
+        wanted_layers = {int(x) for x in layers}
+        jobs = [j for j in jobs if j["layer"] in wanted_layers]
+    if not jobs:
+        raise SystemExit("no classifier jobs match the requested features/layers")
+    return jobs
+
+
+def stored_feature_parts(feature: str) -> tuple[str, ...]:
+    if feature == "kv_mean":
+        return ("k_mean", "v_mean")
+    if feature not in BASE_FEATURES:
+        raise ValueError(f"unknown feature {feature}")
+    return (feature,)
+
+
+def stored_by_layer(cfg: dict) -> dict[int, list[str]]:
+    """Base arrays that must be materialised. kv_mean is concatenated at load/score time."""
+    need: dict[int, list[str]] = {}
+    for job in classifier_jobs(cfg):
+        for part in stored_feature_parts(job["feature"]):
+            bucket = need.setdefault(job["layer"], [])
+            if part not in bucket:
+                bucket.append(part)
+    return need
+
+
+def configured_layers(cfg: dict) -> list[int]:
+    layers = {int(cfg["model"]["layer_index"])}
+    layers.update(stored_by_layer(cfg))
+    return sorted(layers)
+
+
 def feature_list(cfg: dict, include_matched: bool = True) -> list[str]:
-    feats = list(cfg["features"]["types"])
-    m = cfg["classifier"].get("matched", {})
-    if include_matched and m.get("enabled"):
-        feats.append(m["name"])
-    return feats
+    names = []
+    for job in classifier_jobs(cfg):
+        if job["capacity_control"] and not include_matched:
+            continue
+        if job["name"] not in names:
+            names.append(job["name"])
+    return names
 
 
 def classifier_spec(cfg: dict, feature: str) -> tuple[str, int]:
-    """Map a classifier name to (input feature, hidden width)."""
-    m = cfg["classifier"].get("matched", {})
-    if m.get("enabled") and feature == m["name"]:
-        return m["base_feature"], int(m["hidden"])
-    return feature, int(cfg["classifier"]["hidden"])
+    """Map a classifier name to (input feature, hidden width). Layer is not encoded here."""
+    for job in classifier_jobs(cfg):
+        if job["name"] == feature:
+            return job["feature"], job["hidden"]
+    raise KeyError(feature)
 
 
 def base_parser(desc: str) -> argparse.ArgumentParser:

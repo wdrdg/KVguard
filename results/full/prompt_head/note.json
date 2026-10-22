@@ -1,0 +1,23 @@
+{
+  "task": "prompt classification from layer V",
+  "layer_index": 11,
+  "methods": {
+    "prompt_v_last": "V of the last token in prompt_ids",
+    "prompt_v_mean": "FP32 mean of V over every token in prompt_ids"
+  },
+  "prompt_ids": "chat-templated user turn plus generation prompt; thinking disabled. Template tokens are included. Response tokens are not.",
+  "label": "FineHarm filename _HP_ = 1, _BP_ = 0. Response harm is not the label.",
+  "train": "every train row; weight 1/count(prompt_group)",
+  "early_stopping": "dev group-equal BCE. Test is not used to pick the epoch.",
+  "threshold": "calibration rows with prompt label 0, one row per prompt_group, target FPR from the config. Harmful calibration prompts are excluded.",
+  "alarm": "logit > threshold",
+  "does_not_change": "response heads, artifacts/full/protocol_lock.json, response thresholds",
+  "model_id": "Qwen/Qwen3-4B",
+  "revision": "1cfa9a7208912126459214e8b04321603b3df60c",
+  "disk": {
+    "free_bytes_before": 22136332288,
+    "need_bytes": 2147483648,
+    "deleted": [],
+    "action": "enough_space"
+  }
+}

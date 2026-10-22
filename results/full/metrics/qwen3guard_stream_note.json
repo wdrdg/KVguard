@@ -1,0 +1,23 @@
+{
+  "model": "Qwen/Qwen3Guard-Stream-4B",
+  "weights": "official, not fine-tuned on FineHarm",
+  "test_file": "artifacts/full/data/test.jsonl",
+  "n": 2898,
+  "alignment": "same prompt_ids and response_ids as the KV test split; alarm index is 1-based in response_ids",
+  "rules": {
+    "unsafe": [
+      "Unsafe"
+    ],
+    "unsafe_or_controversial": [
+      "Controversial",
+      "Unsafe"
+    ]
+  },
+  "not_used_to_change": [
+    "layer",
+    "threshold",
+    "filter",
+    "protocol_lock"
+  ],
+  "difference": "Qwen3Guard uses its own Safe/Unsafe/Controversial head. Controversial is reported separately and is not folded into the strict Unsafe rule."
+}

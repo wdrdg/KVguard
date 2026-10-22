@@ -1,0 +1,5 @@
+stage,status,n_jobs,detail
+train,ok,9,3 heads x 3 seeds
+calibrate,ok,9,calibration safe responses only
+evaluate:dev,ok,9,development
+evaluate:test,ok,9,heldout

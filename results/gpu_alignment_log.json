@@ -1,0 +1,46 @@
+{
+  "cache_k_equals_recomputed_post_rope": true,
+  "chunk128_vs_tokenwise_max_rel_err": {
+    "h_last": 0.46311789751052856,
+    "h_mean": 0.5885912179946899,
+    "k_mean": 0.10213993489742279,
+    "v_mean": 0.14413200318813324
+  },
+  "chunk128_vs_tokenwise_mean_rel_err": {
+    "h_last": 0.01547932531684637,
+    "h_mean": 0.011215743608772755,
+    "k_mean": 0.005261322017759085,
+    "v_mean": 0.011677305214107037
+  },
+  "chunk128_vs_tokenwise_min_cosine": {
+    "h_last": 0.9999145234110217,
+    "h_mean": 0.9999650548856539,
+    "k_mean": 0.9999894518935798,
+    "v_mean": 0.9999380368041387
+  },
+  "prefix_invariance_max_rel_err": {
+    "h_last": 0.636185884475708,
+    "h_mean": 0.38580191135406494,
+    "k_mean": 0.0984501838684082,
+    "v_mean": 0.11846841126680374
+  },
+  "prefix_invariance_mean_rel_err": {
+    "h_last": 0.013721955940127373,
+    "h_mean": 0.010613277554512024,
+    "k_mean": 0.0052740140818059444,
+    "v_mean": 0.010866180062294006
+  },
+  "prefix_invariance_min_cosine": {
+    "h_last": 0.9999346108835598,
+    "h_mean": 0.9999632243820769,
+    "k_mean": 0.9999881181234084,
+    "v_mean": 0.9999379676156821
+  },
+  "online_vs_offline_max_rel_err": {
+    "h_last": 0.0,
+    "h_mean": 5.030058673582971e-06,
+    "k_mean": 1.5838153331060312e-06,
+    "v_mean": 6.50233857868443e-07,
+    "kv_mean": 2.412235062365653e-06
+  }
+}

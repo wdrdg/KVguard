@@ -1,0 +1,15 @@
+{
+  "n_safe": 750,
+  "n_false_alarms": 37,
+  "allowed_alarms": 37,
+  "threshold": 0.9171267747879028,
+  "empirical_fpr": 0.04933333333333333,
+  "achieved_fpr": 0.04933333333333333,
+  "wilson95_lo": 0.03600061307930126,
+  "wilson95_hi": 0.06725927600084503,
+  "unstable": false,
+  "unstable_reason": "",
+  "note": "threshold was selected on this same set; the Wilson interval is a count-scale description, not a deployment-FPR guarantee",
+  "target_fpr": 0.05,
+  "split": "calibration"
+}
